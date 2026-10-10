@@ -95,7 +95,7 @@ manifests do not grant cluster-wide access.
 | Manifest                                                     | Contents                                                                                                                                                                                       |
 | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [02-cluster-roles.yaml](./manifests/02-cluster-roles.yaml)   | Defines `mentor-writer` and `student-reader` ClusterRoles, configured with read/write and read-only verbs respectively for the resource names listed under the core API group in the manifest. |
-| [03-mentor-rbac.yaml](./manifests/03-mentor-rbac.yaml)       | Binds `mentor-writer` to the mentor ServiceAccount in `mentor` and in each student namespace (`student01`, `student02`, and `student03`).                                                       |
+| [03-mentor-rbac.yaml](./manifests/03-mentor-rbac.yaml)       | Binds `mentor-writer` to the mentor ServiceAccount in `mentor` and in each student namespace (`student01`, `student02`, and `student03`).                                                      |
 | [03-student01-rbac.yaml](./manifests/03-student01-rbac.yaml) | Defines and binds a writer Role for the `student01` ServiceAccount, scoped to `student01`.                                                                                                     |
 | [03-student02-rbac.yaml](./manifests/03-student02-rbac.yaml) | Binds `student-reader` to the `student02` ServiceAccount in `student01` and `default`, granting read-only access in those namespaces.                                                          |
 | [03-student03-rbac.yaml](./manifests/03-student03-rbac.yaml) | Defines and binds a writer Role for the `student03` ServiceAccount, scoped to `student03`.                                                                                                     |
@@ -157,3 +157,30 @@ Policy reports are populated for workloads Kyverno evaluates; an empty report
 list does not necessarily mean the policy was not installed. The ClusterPolicy
 status and Kyverno controller logs can also help diagnose policy readiness or
 evaluation problems.
+
+### Add the `person` label to Pods
+
+The [05-kyverno-person-label.yaml](./manifests/05-kyverno-person-label.yaml)
+manifest defines a cluster-wide `ClusterPolicy` with separate mutation rules:
+it adds or sets `person: mentor` on Pods in `mentor`, and `person: student` on
+Pods in `student01`, `student02`, and `student03`.
+
+A second `ClusterPolicy` rejects Pods with a `person` label in every other
+namespace. This validation rule enforces that the label is reserved for the
+mentor and student namespaces.
+
+Apply it after creating the namespaces and installing Kyverno:
+
+```
+k apply -f manifests/05-kyverno-person-label.yaml
+k get clusterpolicy add-person-label forbid-person-label-outside-owner-namespaces
+```
+
+The mutation applies to Pods admitted after the policy is active. Existing Pods
+are not automatically relabeled; recreate or update them to trigger mutation.
+
+Results:
+
+![Module 02 screenshot 05](./pictures/scr05.bmp)
+![Module 02 screenshot 06](./pictures/scr06.bmp)
+![Module 02 screenshot 07](./pictures/scr07.bmp)
