@@ -1,0 +1,66 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: add-person-label
+spec:
+  rules:
+    - name: label-mentor-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - mentor
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              person: mentor
+    - name: label-student-pods
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              namespaces:
+                - student01
+                - student02
+                - student03
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              person: student
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: forbid-person-label-outside-owner-namespaces
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: forbid-person-label
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - mentor
+                - student01
+                - student02
+                - student03
+      validate:
+        message: >-
+          The person label is reserved for mentor and student namespaces.
+        deny:
+          conditions:
+            any:
+              - key: "{{ request.object.metadata.labels.person || '' }}"
+                operator: NotEquals
+                value: ""
