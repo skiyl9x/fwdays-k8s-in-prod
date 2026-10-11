@@ -47,15 +47,19 @@ clusters/production/
 ├── gitrepos.yaml             # GitRepository "rendered-production" -> production branch
 ├── helmrepos.yaml            # OCI HelmRepository for ghcr.io/skiyl9x/helm-charts
 ├── infrastructure.yaml       # Flux Kustomizations: infra-controllers -> infra-configs
+├── policies.yaml             # Flux Kustomization: policies (dependsOn infra-controllers)
+├── tenants.yaml              # Flux Kustomization: tenants
 └── flux-web-ui.yaml          # Flux Web UI
-infrastructure/
-├── base/
-│   ├── controllers/kyverno/        # Namespace, HelmRepository, HelmRelease (Kyverno 3.9.1)
-│   └── configs/kyverno-policies/   # HelmRelease of fwdays-kyverno-policies
-└── production/                     # production overlays of the bases above
-    ├── controllers/kyverno/
-    └── configs/kyverno-policies/
-.github/workflows/render-manifests.yaml   # renders infrastructure/production -> production branch
+infrastructure/               # operators and their CRDs
+├── base/controllers/kyverno/        # Namespace, HelmRepository, HelmRelease (Kyverno 3.9.1)
+└── production/controllers/kyverno/  # production overlay
+policies/                     # cluster-wide guardrails
+├── base/kyverno-policies/           # HelmRelease of fwdays-kyverno-policies
+└── production/kyverno-policies/     # production overlay
+tenants/                      # namespaces, ServiceAccounts and RBAC per person
+├── base/{common,mentor,student01,student02,student03}/
+└── production/{common,mentor,student01,student02,student03}/
+.github/workflows/render-manifests.yaml   # renders */production overlays -> production branch
 scripts/validate.sh                       # local validation of manifests and overlays
 ```
 
@@ -132,26 +136,31 @@ kubectl create secret docker-registry github-oci-auth \
   --docker-password=<github-token>
 ```
 
-### Infrastructure layers
+### Layers
 
-[`clusters/production/infrastructure.yaml`](../../clusters/production/infrastructure.yaml)
-defines two Flux `Kustomization`s, both reading from the `rendered-production`
-source:
+Each top-level folder is a separate layer with its own Flux `Kustomization`,
+all reading from the `rendered-production` source:
 
-| Kustomization | Path | Contents |
-|---|---|---|
-| `infra-controllers` | `./infrastructure/controllers` | Operators and their CRDs: Kyverno. `wait: true` makes Flux wait until they are ready. |
-| `infra-configs` | `./infrastructure/configs` | Resources that need those CRDs: the Kyverno policies. `dependsOn: infra-controllers` guarantees the order. |
+| Kustomization | Defined in | Path | Contents |
+|---|---|---|---|
+| `infra-controllers` | [`infrastructure.yaml`](../../clusters/production/infrastructure.yaml) | `./infrastructure/controllers` | Operators and their CRDs: Kyverno. `wait: true` makes Flux wait until they are ready. |
+| `infra-configs` | [`infrastructure.yaml`](../../clusters/production/infrastructure.yaml) | `./infrastructure/configs` | Configuration for the operators, e.g. issuers or cluster-wide settings (currently empty). `dependsOn: infra-controllers`. |
+| `policies` | [`policies.yaml`](../../clusters/production/policies.yaml) | `./policies` | Kyverno policies. `dependsOn: infra-controllers` guarantees the Kyverno CRDs exist first. |
+| `tenants` | [`tenants.yaml`](../../clusters/production/tenants.yaml) | `./tenants` | Namespaces, ServiceAccounts and RBAC for the mentor and students. No dependencies. |
 
 ### Rendered manifests workflow
 
 [`.github/workflows/render-manifests.yaml`](../../.github/workflows/render-manifests.yaml)
-runs on every push to `main` that touches `apps/**` or `infrastructure/**`:
+runs on every push to `main` that touches `apps/**`, `infrastructure/**`, `policies/**` or `tenants/**`:
 
 1. Runs `kustomize build` for every directory in
-   `infrastructure/production/controllers/` and `infrastructure/production/configs/`.
-2. Writes the result to `infrastructure/controllers/<name>.yaml` and
-   `infrastructure/configs/<name>.yaml`.
+   `infrastructure/production/controllers/`, `infrastructure/production/configs/`
+   `policies/production/` and `tenants/production/`.
+2. Writes the result to `infrastructure/controllers/<name>.yaml`,
+   `infrastructure/configs/<name>.yaml`, `policies/<name>.yaml` and
+   `tenants/<name>.yaml`, replacing the
+   previously rendered files (so files removed from `main` are removed from
+   `production` as well).
 3. Opens a PR into the `production` branch (and closes the previous open one if it
    is outdated).
 
@@ -213,7 +222,7 @@ same policies as the Module 02 manifests.
 
 ### Deploy with Flux
 
-[`infrastructure/base/configs/kyverno-policies/helmrelease.yaml`](../../infrastructure/base/configs/kyverno-policies/helmrelease.yaml)
+[`policies/base/kyverno-policies/helmrelease.yaml`](../../policies/base/kyverno-policies/helmrelease.yaml)
 installs chart version `0.1.0` from the `skiyl9x-helm-charts` source:
 
 ```yaml
@@ -244,4 +253,40 @@ Check the result:
 ```
 flux get helmreleases -n kyverno
 kubectl get clusterpolicy
+```
+
+## 3. Tenants (Module 02 RBAC via GitOps)
+
+The namespaces, ServiceAccounts and RBAC from Module 02
+([`docs/module02/manifests/01-03`](../module02/manifests)) are managed by Flux
+from the [`tenants/`](../../tenants) folder, one folder per tenant:
+
+| Folder | Contents |
+|---|---|
+| [`common`](../../tenants/base/common) | ClusterRoles `mentor-writer` (read/write) and `student-reader` (read-only) |
+| [`mentor`](../../tenants/base/mentor) | `mentor` namespace and ServiceAccount; `mentor-writer` RoleBindings in `mentor`, `student01`, `student02`, `student03` |
+| [`student01`](../../tenants/base/student01), [`student03`](../../tenants/base/student03) | Namespace, ServiceAccount, and a writer Role and RoleBinding in their own namespace |
+| [`student02`](../../tenants/base/student02) | Namespace, ServiceAccount; `student-reader` RoleBindings in `student01` and `default` |
+
+Differences from the Module 02 manifests:
+
+- `deployments`, `replicasets`, `statefulsets` and `daemonsets` are in the `apps`
+  API group, so the roles now actually grant access to them (in Module 02 they
+  were listed under the core `""` group, which has no such resources).
+- Namespaces have the `kustomize.toolkit.fluxcd.io/prune: disabled` annotation:
+  if a tenant is removed from git, Flux keeps its namespace and its workloads
+  instead of deleting them.
+
+The objects created with `kubectl apply` in Module 02 are adopted by Flux in
+place; nothing is recreated.
+
+To add a student, copy `tenants/base/student01` and `tenants/production/student01`,
+rename them, and add the new namespace to `personLabel.persons.student.namespaces`
+in [`policies/base/kyverno-policies/helmrelease.yaml`](../../policies/base/kyverno-policies/helmrelease.yaml).
+
+Check the result:
+
+```
+flux get kustomizations tenants
+kubectl get ns -l kustomize.toolkit.fluxcd.io/name=tenants
 ```

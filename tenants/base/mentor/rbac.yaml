@@ -1,0 +1,55 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mentor-writer
+  namespace: mentor
+subjects:
+  - kind: ServiceAccount
+    name: mentor
+    namespace: mentor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mentor-writer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mentor-writer
+  namespace: student01
+subjects:
+  - kind: ServiceAccount
+    name: mentor
+    namespace: mentor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mentor-writer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mentor-writer
+  namespace: student02
+subjects:
+  - kind: ServiceAccount
+    name: mentor
+    namespace: mentor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mentor-writer
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mentor-writer
+  namespace: student03
+subjects:
+  - kind: ServiceAccount
+    name: mentor
+    namespace: mentor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mentor-writer
