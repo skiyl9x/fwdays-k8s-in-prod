@@ -1,0 +1,113 @@
+name: Render Manifests
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'infrastructure/**'
+
+permissions:
+  contents: write
+  pull-requests: write
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target_branch: [production]
+    steps:
+      - name: Checkout Main Branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+          path: main
+
+      - name: Install Kustomize
+        run: |
+          curl -s https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh | bash
+          sudo mv kustomize /usr/local/bin/
+
+      # - name: Render App Manifests
+      #   working-directory: main
+      #   run: |
+      #     set -x
+      #     for app_env_dir in $(find apps/overlays -mindepth 1 -maxdepth 1 -type d -name "${{ matrix.target_branch }}*"); do
+      #       for app_dir in $(find ${app_env_dir} -mindepth 1 -maxdepth 1 -type d); do
+      #         app_env=$(basename ${app_env_dir})
+      #         app_name=$(basename ${app_dir})
+      #         mkdir -p ../tmp/rendered/apps/${app_env}/${app_name}
+      #         kustomize build ${app_dir} > ../tmp/rendered/apps/${app_env}/${app_name}/${app_name}.yaml
+      #       done
+      #     done
+
+      - name: Render Infrastructure Manifests
+        working-directory: main
+        run: |
+          set -x
+          if [ -d infrastructure/${{ matrix.target_branch }}/controllers ]; then
+            for controller_dir in $(find infrastructure/${{ matrix.target_branch }}/controllers -mindepth 1 -maxdepth 1 -type d); do
+              controller_name=$(basename ${controller_dir})
+              mkdir -p ../tmp/rendered/infrastructure/controllers
+              kustomize build ${controller_dir} > ../tmp/rendered/infrastructure/controllers/${controller_name}.yaml
+            done
+          fi
+          if [ -d infrastructure/${{ matrix.target_branch }}/configs ]; then
+            for config_dir in $(find infrastructure/${{ matrix.target_branch }}/configs -mindepth 1 -maxdepth 1 -type d); do
+              config_name=$(basename ${config_dir})
+              mkdir -p ../tmp/rendered/infrastructure/configs
+              kustomize build ${config_dir} > ../tmp/rendered/infrastructure/configs/${config_name}.yaml
+            done
+          fi
+
+      - name: Checkout Target Branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ matrix.target_branch }}
+          path: ${{ matrix.target_branch }}
+
+      - name: Push Manifests
+        if: ${{ matrix.target_branch != 'production' }}
+        working-directory: ${{ matrix.target_branch }}
+        run: |
+          set -x
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          mkdir -p rendered/
+          cp -rf ../tmp/rendered/* .
+          git add .
+          git commit -m "Update rendered manifests with run id ${{ github.run_id }}" || echo "No changes"
+          git push origin ${{ matrix.target_branch }}
+
+      - name: Create PR
+        if: ${{ matrix.target_branch == 'production' }}
+        working-directory: ${{ matrix.target_branch }}
+        env: 
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -x
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git checkout -b rendered--${{ matrix.target_branch }}--${{ github.run_id }}
+          mkdir -p rendered
+          cp -rf ../tmp/rendered/* .
+          git add .
+          if git commit -m "Update rendered manifests for ${{ matrix.target_branch }}"; then
+            old_pr_num=$(gh pr list --base ${{ matrix.target_branch }} --state open --json number -q '.[].number')
+            if [ -n "${old_pr_num}" ]; then
+              git fetch origin pull/${old_pr_num}/head:pr-${old_pr_num}
+              if ! git diff --quiet HEAD pr-${old_pr_num}; then
+                git push --set-upstream origin rendered--${{ matrix.target_branch }}--${{ github.run_id }}
+                pr_url=$(gh pr create --base ${{ matrix.target_branch }} -t "${{ matrix.target_branch }}: new updates with run id ${{ github.run_id }}" --body "")
+                gh pr close --delete-branch --comment "Replaced by PR ${pr_url}" ${old_pr_num}
+              else
+                printf "skipped\n"
+              fi
+            else
+              git push --set-upstream origin rendered--${{ matrix.target_branch }}--${{ github.run_id }}
+              gh pr create --base ${{ matrix.target_branch }} -t "${{ matrix.target_branch }}: new updates with run id ${{ github.run_id }}" --body ""
+            fi
+          fi
