@@ -1,0 +1,12 @@
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: skiyl9x-helm-charts
+  namespace: flux-system
+spec:
+  interval: 1m
+  type: oci
+  url: oci://ghcr.io/skiyl9x/helm-charts
+  secretRef:
+    name: github-oci-auth
