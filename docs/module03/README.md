@@ -46,7 +46,7 @@ clusters/production/
 ├── flux-instance.yaml        # FluxInstance: Flux components + sync of this folder from main
 ├── gitrepos.yaml             # GitRepository "rendered-production" -> production branch
 ├── helmrepos.yaml            # OCI HelmRepository for ghcr.io/skiyl9x/helm-charts
-├── infrastructure.yaml       # Flux Kustomization: infra-controllers
+├── infrastructure.yaml       # Flux Kustomizations: infra-controllers -> infra-configs
 ├── policies.yaml             # Flux Kustomization: policies (dependsOn infra-controllers)
 └── flux-web-ui.yaml          # Flux Web UI
 infrastructure/               # operators and their CRDs
@@ -140,6 +140,7 @@ all reading from the `rendered-production` source:
 | Kustomization | Defined in | Path | Contents |
 |---|---|---|---|
 | `infra-controllers` | [`infrastructure.yaml`](../../clusters/production/infrastructure.yaml) | `./infrastructure/controllers` | Operators and their CRDs: Kyverno. `wait: true` makes Flux wait until they are ready. |
+| `infra-configs` | [`infrastructure.yaml`](../../clusters/production/infrastructure.yaml) | `./infrastructure/configs` | Configuration for the operators, e.g. issuers or cluster-wide settings (currently empty). `dependsOn: infra-controllers`. |
 | `policies` | [`policies.yaml`](../../clusters/production/policies.yaml) | `./policies` | Kyverno policies. `dependsOn: infra-controllers` guarantees the Kyverno CRDs exist first. |
 
 ### Rendered manifests workflow

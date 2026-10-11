@@ -55,6 +55,9 @@ jobs:
               kustomize build ${controller_dir} > ../tmp/rendered/infrastructure/controllers/${controller_name}.yaml
             done
           fi
+          # keep the folder even when there are no configs, the infra-configs Kustomization points to it
+          mkdir -p ../tmp/rendered/infrastructure/configs
+          touch ../tmp/rendered/infrastructure/configs/.gitkeep
           if [ -d infrastructure/${{ matrix.target_branch }}/configs ]; then
             for config_dir in $(find infrastructure/${{ matrix.target_branch }}/configs -mindepth 1 -maxdepth 1 -type d); do
               config_name=$(basename ${config_dir})
