@@ -7,6 +7,7 @@ on:
       - 'apps/**'
       - 'infrastructure/**'
       - 'policies/**'
+      - 'tenants/**'
 
 permissions:
   contents: write
@@ -78,6 +79,18 @@ jobs:
             done
           fi
 
+      - name: Render Tenants Manifests
+        working-directory: main
+        run: |
+          set -x
+          if [ -d tenants/${{ matrix.target_branch }} ]; then
+            for tenant_dir in $(find tenants/${{ matrix.target_branch }} -mindepth 1 -maxdepth 1 -type d); do
+              tenant_name=$(basename ${tenant_dir})
+              mkdir -p ../tmp/rendered/tenants
+              kustomize build ${tenant_dir} > ../tmp/rendered/tenants/${tenant_name}.yaml
+            done
+          fi
+
       - name: Checkout Target Branch
         uses: actions/checkout@v4
         with:
@@ -94,7 +107,7 @@ jobs:
           git config user.email "actions@github.com"
           mkdir -p rendered/
           # drop previously rendered layers so files removed from main are removed here too
-          rm -rf infrastructure policies
+          rm -rf infrastructure policies tenants
           cp -rf ../tmp/rendered/* .
           git add -A
           git commit -m "Update rendered manifests with run id ${{ github.run_id }}" || echo "No changes"
@@ -112,7 +125,7 @@ jobs:
           git checkout -b rendered--${{ matrix.target_branch }}--${{ github.run_id }}
           mkdir -p rendered
           # drop previously rendered layers so files removed from main are removed here too
-          rm -rf infrastructure policies
+          rm -rf infrastructure policies tenants
           cp -rf ../tmp/rendered/* .
           git add -A
           if git commit -m "Update rendered manifests for ${{ matrix.target_branch }}"; then
