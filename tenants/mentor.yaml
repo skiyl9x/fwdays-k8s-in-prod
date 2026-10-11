@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  annotations:
+    kustomize.toolkit.fluxcd.io/prune: disabled
+  name: mentor
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mentor
+  namespace: mentor
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mentor-writer
+  namespace: mentor
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mentor-writer
+subjects:
+- kind: ServiceAccount
+  name: mentor
+  namespace: mentor
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mentor-writer
+  namespace: student01
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mentor-writer
+subjects:
+- kind: ServiceAccount
+  name: mentor
+  namespace: mentor
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mentor-writer
+  namespace: student02
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mentor-writer
+subjects:
+- kind: ServiceAccount
+  name: mentor
+  namespace: mentor
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mentor-writer
+  namespace: student03
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: mentor-writer
+subjects:
+- kind: ServiceAccount
+  name: mentor
+  namespace: mentor
