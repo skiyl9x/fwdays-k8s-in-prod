@@ -6,6 +6,7 @@ on:
     paths:
       - 'apps/**'
       - 'infrastructure/**'
+      - 'policies/**'
 
 permissions:
   contents: write
@@ -62,6 +63,18 @@ jobs:
             done
           fi
 
+      - name: Render Policies Manifests
+        working-directory: main
+        run: |
+          set -x
+          if [ -d policies/${{ matrix.target_branch }} ]; then
+            for policy_dir in $(find policies/${{ matrix.target_branch }} -mindepth 1 -maxdepth 1 -type d); do
+              policy_name=$(basename ${policy_dir})
+              mkdir -p ../tmp/rendered/policies
+              kustomize build ${policy_dir} > ../tmp/rendered/policies/${policy_name}.yaml
+            done
+          fi
+
       - name: Checkout Target Branch
         uses: actions/checkout@v4
         with:
@@ -77,8 +90,10 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           mkdir -p rendered/
+          # drop previously rendered layers so files removed from main are removed here too
+          rm -rf infrastructure policies
           cp -rf ../tmp/rendered/* .
-          git add .
+          git add -A
           git commit -m "Update rendered manifests with run id ${{ github.run_id }}" || echo "No changes"
           git push origin ${{ matrix.target_branch }}
 
@@ -93,8 +108,10 @@ jobs:
           git config user.email "actions@github.com"
           git checkout -b rendered--${{ matrix.target_branch }}--${{ github.run_id }}
           mkdir -p rendered
+          # drop previously rendered layers so files removed from main are removed here too
+          rm -rf infrastructure policies
           cp -rf ../tmp/rendered/* .
-          git add .
+          git add -A
           if git commit -m "Update rendered manifests for ${{ matrix.target_branch }}"; then
             old_pr_num=$(gh pr list --base ${{ matrix.target_branch }} --state open --json number -q '.[].number')
             if [ -n "${old_pr_num}" ]; then

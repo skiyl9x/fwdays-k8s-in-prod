@@ -46,16 +46,16 @@ clusters/production/
 ├── flux-instance.yaml        # FluxInstance: Flux components + sync of this folder from main
 ├── gitrepos.yaml             # GitRepository "rendered-production" -> production branch
 ├── helmrepos.yaml            # OCI HelmRepository for ghcr.io/skiyl9x/helm-charts
-├── infrastructure.yaml       # Flux Kustomizations: infra-controllers -> infra-configs
+├── infrastructure.yaml       # Flux Kustomization: infra-controllers
+├── policies.yaml             # Flux Kustomization: policies (dependsOn infra-controllers)
 └── flux-web-ui.yaml          # Flux Web UI
-infrastructure/
-├── base/
-│   ├── controllers/kyverno/        # Namespace, HelmRepository, HelmRelease (Kyverno 3.9.1)
-│   └── configs/kyverno-policies/   # HelmRelease of fwdays-kyverno-policies
-└── production/                     # production overlays of the bases above
-    ├── controllers/kyverno/
-    └── configs/kyverno-policies/
-.github/workflows/render-manifests.yaml   # renders infrastructure/production -> production branch
+infrastructure/               # operators and their CRDs
+├── base/controllers/kyverno/        # Namespace, HelmRepository, HelmRelease (Kyverno 3.9.1)
+└── production/controllers/kyverno/  # production overlay
+policies/                     # cluster-wide guardrails
+├── base/kyverno-policies/           # HelmRelease of fwdays-kyverno-policies
+└── production/kyverno-policies/     # production overlay
+.github/workflows/render-manifests.yaml   # renders */production overlays -> production branch
 scripts/validate.sh                       # local validation of manifests and overlays
 ```
 
@@ -132,26 +132,28 @@ kubectl create secret docker-registry github-oci-auth \
   --docker-password=<github-token>
 ```
 
-### Infrastructure layers
+### Layers
 
-[`clusters/production/infrastructure.yaml`](../../clusters/production/infrastructure.yaml)
-defines two Flux `Kustomization`s, both reading from the `rendered-production`
-source:
+Each top-level folder is a separate layer with its own Flux `Kustomization`,
+all reading from the `rendered-production` source:
 
-| Kustomization | Path | Contents |
-|---|---|---|
-| `infra-controllers` | `./infrastructure/controllers` | Operators and their CRDs: Kyverno. `wait: true` makes Flux wait until they are ready. |
-| `infra-configs` | `./infrastructure/configs` | Resources that need those CRDs: the Kyverno policies. `dependsOn: infra-controllers` guarantees the order. |
+| Kustomization | Defined in | Path | Contents |
+|---|---|---|---|
+| `infra-controllers` | [`infrastructure.yaml`](../../clusters/production/infrastructure.yaml) | `./infrastructure/controllers` | Operators and their CRDs: Kyverno. `wait: true` makes Flux wait until they are ready. |
+| `policies` | [`policies.yaml`](../../clusters/production/policies.yaml) | `./policies` | Kyverno policies. `dependsOn: infra-controllers` guarantees the Kyverno CRDs exist first. |
 
 ### Rendered manifests workflow
 
 [`.github/workflows/render-manifests.yaml`](../../.github/workflows/render-manifests.yaml)
-runs on every push to `main` that touches `apps/**` or `infrastructure/**`:
+runs on every push to `main` that touches `apps/**`, `infrastructure/**` or `policies/**`:
 
 1. Runs `kustomize build` for every directory in
-   `infrastructure/production/controllers/` and `infrastructure/production/configs/`.
-2. Writes the result to `infrastructure/controllers/<name>.yaml` and
-   `infrastructure/configs/<name>.yaml`.
+   `infrastructure/production/controllers/`, `infrastructure/production/configs/`
+   and `policies/production/`.
+2. Writes the result to `infrastructure/controllers/<name>.yaml`,
+   `infrastructure/configs/<name>.yaml` and `policies/<name>.yaml`, replacing the
+   previously rendered files (so files removed from `main` are removed from
+   `production` as well).
 3. Opens a PR into the `production` branch (and closes the previous open one if it
    is outdated).
 
@@ -213,7 +215,7 @@ same policies as the Module 02 manifests.
 
 ### Deploy with Flux
 
-[`infrastructure/base/configs/kyverno-policies/helmrelease.yaml`](../../infrastructure/base/configs/kyverno-policies/helmrelease.yaml)
+[`policies/base/kyverno-policies/helmrelease.yaml`](../../policies/base/kyverno-policies/helmrelease.yaml)
 installs chart version `0.1.0` from the `skiyl9x-helm-charts` source:
 
 ```yaml
