@@ -12,14 +12,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
       - name: Setup Flux CLI
-        uses: fluxcd/flux2/action@main
+        uses: fluxcd/flux2/action@v2.9.6
       - name: Setup Flux Schema CLI
-        uses: fluxcd/flux-schema/actions/setup@main
+        uses: fluxcd/flux-schema/actions/setup@v0.15.0
       - name: Validate manifests
-        uses: fluxcd/flux-schema/actions/validate@main
+        uses: fluxcd/flux-schema/actions/validate@v0.15.0
         with:
           path: '.'
-          config: '.fluxschema.yml'
+          config: '.fluxschema.yaml'
       - name: Validate API versions
         run: |
           flux migrate -f . --yes
