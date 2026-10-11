@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kyverno
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: kyverno
+  namespace: kyverno
+spec:
+  chart:
+    spec:
+      chart: kyverno
+      sourceRef:
+        kind: HelmRepository
+        name: kyverno
+        namespace: flux-system
+      version: 3.9.1
+  install:
+    crds: CreateReplace
+    createNamespace: true
+  interval: 1h
+  releaseName: kyverno
+  targetNamespace: kyverno
+  upgrade:
+    crds: CreateReplace
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: kyverno
+  namespace: kyverno
+spec:
+  interval: 1h
+  url: https://kyverno.github.io/kyverno
