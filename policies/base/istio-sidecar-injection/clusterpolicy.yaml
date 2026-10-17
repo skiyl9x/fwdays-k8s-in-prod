@@ -1,0 +1,38 @@
+# Every pod with the label person: student starts with the istio-proxy sidecar.
+# Kyverno marks the pod with the sidecar.istio.io/inject annotation, then the Istio
+# injector (reinvoked after Kyverno) adds the sidecar.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: inject-istio-sidecar-for-students
+  annotations:
+    # mutate pods only: the sidecar is added at pod creation
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  rules:
+    - name: add-istio-inject-annotation
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+              selector:
+                matchLabels:
+                  person: student
+          # pods that get person: student from the add-person-label policy in the same request
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+              namespaces:
+                - student01
+                - student02
+                - student03
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              sidecar.istio.io/inject: "true"

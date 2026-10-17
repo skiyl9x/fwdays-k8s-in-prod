@@ -30,6 +30,8 @@ spec:
           memory: 256Mi
     global:
       proxy:
+        # inject only into pods that ask for it (sidecar.istio.io/inject: "true")
+        autoInject: disabled
         resources:
           requests:
             cpu: 10m
@@ -39,3 +41,8 @@ spec:
             memory: 256Mi
     meshConfig:
       accessLogFile: /dev/stdout
+    sidecarInjectorWebhook:
+      # send every pod to the injector, so it sees pods that Kyverno marks for injection
+      enableNamespacesByDefault: true
+      # call the injector again after Kyverno (its webhook runs later) has mutated the pod
+      reinvocationPolicy: IfNeeded
