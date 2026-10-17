@@ -14,10 +14,10 @@ bases and overlays on `main`, rendered into the `production` branch by GitHub
 Actions, applied by Flux. Nothing is installed with `istioctl` or `helm install`
 by hand.
 
-Sidecar mode means every pod in a mesh namespace gets an extra `istio-proxy`
-(Envoy) container. `istiod` adds it through a mutating admission webhook when
-the pod is created, and the `istio-init` init container redirects the pod's
-traffic through the proxy with iptables rules.
+Sidecar mode means every pod in the mesh gets an extra `istio-proxy` (Envoy)
+container. `istiod` adds it through a mutating admission webhook when the pod is
+created, and the `istio-init` init container redirects the pod's traffic through
+the proxy with iptables rules.
 
 ## Architecture
 
@@ -26,31 +26,24 @@ flowchart LR
   subgraph istio-system
     base[HelmRelease istio-base<br/>CRDs, webhooks]
     istiod[HelmRelease istiod<br/>control plane]
-    pa[PeerAuthentication default<br/>mTLS STRICT]
   end
   base -->|dependsOn| istiod
-  istiod -->|injects istio-proxy| ns
-  subgraph ns[mentor, student01..03<br/>istio-injection=enabled]
+  istiod -->|injects istio-proxy| pod
+  subgraph pod[pod opted in to injection]
     app[app container] --- proxy[istio-proxy]
   end
-  pa -.->|applies to| proxy
 ```
 
-### Repository layout (new and changed files)
+### Repository layout (new files)
 
 ```
 infrastructure/
 ├── base/controllers/istio/            # Namespace, HelmRepository, HelmReleases istio-base and istiod
-├── production/controllers/istio/      # production overlay  -> infra-controllers layer
-├── base/configs/istio/                # mesh-wide PeerAuthentication (mTLS STRICT)
-└── production/configs/istio/          # production overlay  -> infra-configs layer
-tenants/production/{mentor,student01,student02,student03}/kustomization.yaml
-                                       # patch: label namespace istio-injection=enabled
+└── production/controllers/istio/      # production overlay  -> infra-controllers layer
 ```
 
 No changes are needed in `clusters/production/` or in the render workflow: it
-already renders every directory in `infrastructure/production/controllers/` and
-`infrastructure/production/configs/`.
+already renders every directory in `infrastructure/production/controllers/`.
 
 ## 1. Install Istio
 
@@ -75,36 +68,31 @@ so Flux treats the layer as ready only when `istiod` is running.
 No ingress gateway is installed: the task asks only for the sidecar data plane.
 A gateway can be added later as one more `HelmRelease` of the `gateway` chart.
 
+No `PeerAuthentication` is created, so the mesh uses Istio's default `PERMISSIVE`
+mode: pods with a sidecar accept both mTLS and plain-text traffic, and clients
+outside the mesh (for example the k3s Traefik ingress) can still reach them.
+
 ## 2. Enable sidecar injection
 
-Each tenant namespace gets the `istio-injection: enabled` label through a patch in
-its production overlay, for example
-[`tenants/production/student01/kustomization.yaml`](../../tenants/production/student01/kustomization.yaml).
-The base namespace stays the same as before, so the mesh is turned on per environment.
+No namespace is added to the mesh by this change; the tenant namespaces
+(`mentor`, `student01..03`) are not modified. Injection is opt-in, in one of two ways:
+
+- for a whole namespace: label it, and new pods in it get a sidecar
+
+  ```
+  kubectl label namespace <namespace> istio-injection=enabled
+  ```
+
+- for a single workload: add the label `sidecar.istio.io/inject: "true"` to the pod template
 
 Injection happens only when a pod is created. Pods that were running before the
-label was added have no sidecar until they are restarted:
+namespace was labelled have no sidecar until they are restarted:
 
 ```
-kubectl -n student01 rollout restart deployment
+kubectl -n <namespace> rollout restart deployment
 ```
 
-`flux-system`, `kyverno`, `kube-system` and `istio-system` are not labelled and stay outside the mesh.
-
-## 3. Mutual TLS
-
-[`infrastructure/base/configs/istio/peer-authentication.yaml`](../../infrastructure/base/configs/istio/peer-authentication.yaml)
-is a `PeerAuthentication` named `default` in the root namespace `istio-system`,
-so it applies to the whole mesh. With `mode: STRICT` sidecars accept only mTLS
-traffic. It is in the `infra-configs` layer, which `dependsOn: infra-controllers`,
-so the `security.istio.io` CRDs already exist when Flux applies it.
-
-STRICT also means clients without a sidecar can't reach mesh pods any more. That
-includes the k3s Traefik ingress in `kube-system`. If a tenant needs traffic from
-outside the mesh, set a namespace-level `PeerAuthentication` with `mode: PERMISSIVE`
-in that namespace, or route the traffic through an Istio ingress gateway.
-
-## 4. Kyverno compatibility
+## 3. Kyverno compatibility
 
 The `require-readonly-rootfs` policy from Module 03 checks every container and
 init container, including the injected ones. Kyverno validates the pod after
@@ -129,21 +117,20 @@ switching the policy to `Enforce`, do one of the following:
 ```
 flux get helmreleases -n istio-system
 kubectl -n istio-system get pods
-kubectl get namespaces -L istio-injection
-kubectl get peerauthentication -A
+kubectl get mutatingwebhookconfigurations
 ```
 
-Test the injection with a pod in a tenant namespace. The pod should show `2/2` containers:
+Test the injection with a single pod that opts in. The pod should show `2/2` containers:
 
 ```
-kubectl -n student01 run httpbin --image=docker.io/kong/httpbin --port=80
-kubectl -n student01 get pod httpbin
-kubectl -n student01 get pod httpbin -o jsonpath='{.spec.containers[*].name}'
+kubectl run httpbin --image=docker.io/kong/httpbin --port=80 --labels=sidecar.istio.io/inject=true
+kubectl get pod httpbin
+kubectl get pod httpbin -o jsonpath='{.spec.containers[*].name}'
+kubectl delete pod httpbin
 ```
 
-Check that mTLS is in use (needs `istioctl` on the workstation):
+With `istioctl` on the workstation, check that the sidecar is connected to `istiod`:
 
 ```
 istioctl proxy-status
-istioctl x describe pod httpbin -n student01
 ```

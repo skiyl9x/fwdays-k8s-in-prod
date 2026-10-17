@@ -2,13 +2,3 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../../base/student03
-patches:
-  # Istio injects the istio-proxy sidecar into every new pod in the namespace
-  - target:
-      kind: Namespace
-      name: student03
-    patch: |-
-      - op: add
-        path: /metadata/labels
-        value:
-          istio-injection: enabled
