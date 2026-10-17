@@ -4,6 +4,8 @@
 
 1. Встановити Istio service mesh в режимі sidecar.
 
+2. Створити Kyverno policy всі поди з лейблом "person: student" буде запускати з istio-sidecar контейнером
+
 ---
 
 # Realisation
@@ -15,6 +17,7 @@ branch, and Flux applied them after the merge.
 
 In sidecar mode `istiod` adds an `istio-proxy` (Envoy) container to every pod
 that joins the mesh. All traffic to and from the pod goes through this proxy.
+A Kyverno policy adds every pod with the label `person: student` to the mesh.
 
 ## Repository layout
 
@@ -28,7 +31,14 @@ infrastructure/
 │   └── kustomization.yaml
 └── production/controllers/istio/    # production overlay
     └── kustomization.yaml
+policies/
+└── base/kyverno-policies/
+    └── helmrelease.yaml             # fwdays-kyverno-policies 0.2.0, injectIstioSidecar enabled
 ```
+
+The policy itself is a template in the
+[`fwdays-kyverno-policies`](https://github.com/skiyl9x/helm-charts/tree/main/charts/fwdays-kyverno-policies)
+chart: `templates/inject-istio-sidecar.yaml`.
 
 ## 1. Install Istio
 
@@ -43,7 +53,7 @@ Flux `HelmRelease`s in the `istio-system` namespace:
 
 `istiod` has `dependsOn: istio-base`, so Flux installs it only after the CRDs exist.
 
-`istiod` values for the single-node cluster:
+`istiod` values:
 
 ```yaml
 pilot:
@@ -55,6 +65,7 @@ pilot:
       memory: 256Mi
 global:
   proxy:
+    autoInject: disabled
     resources:
       requests:
         cpu: 10m
@@ -64,7 +75,16 @@ global:
         memory: 256Mi
 meshConfig:
   accessLogFile: /dev/stdout
+sidecarInjectorWebhook:
+  enableNamespacesByDefault: true
+  reinvocationPolicy: IfNeeded
 ```
+
+- `pilot.*` and `global.proxy.resources`: one replica and small requests for the single-node cluster.
+- `meshConfig.accessLogFile`: the sidecars write access logs to stdout.
+- `sidecarInjectorWebhook` and `global.proxy.autoInject`: every new pod is sent to the
+  Istio injector, but it adds the sidecar only to pods marked with
+  `sidecar.istio.io/inject: "true"`. Section 2 explains why.
 
 The production overlay
 [`infrastructure/production/controllers/istio`](../../infrastructure/production/controllers/istio)
@@ -78,34 +98,123 @@ flux get helmreleases -n istio-system
 kubectl -n istio-system get pods
 ```
 
-## 2. Add a workload to the mesh
+## 2. Kyverno policy: sidecar for students
 
-The sidecar is injected only into pods that opt in. To add a whole namespace to
-the mesh, label it:
+The policy is added to the `fwdays-kyverno-policies` Helm chart from Module 03 as
+the template `templates/inject-istio-sidecar.yaml`, and the chart version is bumped to `0.2.0`.
+New values (disabled by default):
 
-```
-kubectl label namespace <namespace> istio-injection=enabled
-```
-
-To add a single pod, give it the label `sidecar.istio.io/inject=true`.
-
-Test pod:
-
-```
-kubectl run httpbin --image=docker.io/kong/httpbin --port=80 --labels=sidecar.istio.io/inject=true
-kubectl get pod httpbin
-kubectl get pod httpbin -o jsonpath='{.spec.containers[*].name}'
+```yaml
+policies:
+  injectIstioSidecar:
+    enabled: false
+    persons: [student]      # values of personLabel.key whose pods get the sidecar
 ```
 
-The pod shows `2/2` ready containers: `httpbin` and `istio-proxy`. The proxy
-logs the requests it handles:
+The template builds one rule per person from the existing `personLabel` values
+(the label key and the person's namespaces), so the namespace list lives in one place.
+
+In this repo the policy is enabled in
+[`policies/base/kyverno-policies/helmrelease.yaml`](../../policies/base/kyverno-policies/helmrelease.yaml):
+
+```yaml
+chart:
+  spec:
+    chart: fwdays-kyverno-policies
+    version: 0.2.0
+values:
+  policies:
+    injectIstioSidecar:
+      enabled: true
+      persons: [student]
+```
+
+Rendered `ClusterPolicy`:
+
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: inject-istio-sidecar
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+spec:
+  rules:
+    - name: inject-sidecar-student-pods
+      match:
+        any:
+          - resources:
+              kinds: [Pod]
+              operations: [CREATE]
+              selector:
+                matchLabels:
+                  person: student
+          - resources:
+              kinds: [Pod]
+              operations: [CREATE]
+              namespaces: [student01, student02, student03]
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            annotations:
+              sidecar.istio.io/inject: "true"
+```
+
+When a pod with `person: student` is created, the policy adds the annotation
+`sidecar.istio.io/inject: "true"`, and Istio adds the `istio-proxy` container.
+
+The student namespaces are in the match as well because the `person: student`
+label itself is added by the `add-person-label` policy from Module 03 in the same
+request. Only pods in these namespaces can have the label, so both matches select
+the same pods.
+
+How it works together with Istio:
+
+1. Kubernetes calls mutating webhooks in order of their configuration names, so the
+   Istio injector (`istio-sidecar-injector`) runs before Kyverno
+   (`kyverno-resource-mutating-webhook-cfg`). At that point the pod is not marked
+   yet, so Istio doesn't inject.
+2. Kyverno adds the `person: student` label and the `sidecar.istio.io/inject` annotation.
+3. Because the pod changed, Kubernetes calls the Istio injector again
+   (`reinvocationPolicy: IfNeeded`). Now Istio sees the annotation and adds the sidecar.
+
+The Istio webhook is called again only if it handled the pod the first time. That's
+why every pod goes to the injector (`enableNamespacesByDefault: true`), and
+`autoInject: disabled` stops it from injecting into pods that aren't marked.
+Kyverno sets an annotation rather than a label because the Istio webhook that
+handles unmarked pods matches only pods without the `sidecar.istio.io/inject` label.
+
+The chart is deployed by the `policies` Flux Kustomization, which depends on
+`infra-controllers`, so Kyverno and Istio are already installed.
+
+Check the policy:
 
 ```
-kubectl logs httpbin -c istio-proxy
+flux get helmreleases -n kyverno
+kubectl get clusterpolicy inject-istio-sidecar
 ```
+
+Test with a pod in a student namespace:
+
+```
+kubectl -n student01 run httpbin --image=docker.io/kong/httpbin --port=80
+kubectl -n student01 get pod httpbin --show-labels
+kubectl -n student01 get pod httpbin -o jsonpath='{.spec.containers[*].name}'
+```
+
+The pod has the label `person=student`, shows `2/2` ready containers (`httpbin` and
+`istio-proxy`), and the proxy logs the requests it handles:
+
+```
+kubectl -n student01 logs httpbin -c istio-proxy
+```
+
+A pod in another namespace, for example `mentor`, starts without the sidecar (`1/1`).
 
 Delete the test pod:
 
 ```
-kubectl delete pod httpbin
+kubectl -n student01 delete pod httpbin
 ```
+
+Other pods can join the mesh by setting the label `sidecar.istio.io/inject=true` themselves.
