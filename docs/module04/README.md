@@ -32,12 +32,13 @@ infrastructure/
 └── production/controllers/istio/    # production overlay
     └── kustomization.yaml
 policies/
-├── base/istio-sidecar-injection/
-│   ├── clusterpolicy.yaml           # ClusterPolicy inject-istio-sidecar-for-students
-│   └── kustomization.yaml
-└── production/istio-sidecar-injection/   # production overlay
-    └── kustomization.yaml
+└── base/kyverno-policies/
+    └── helmrelease.yaml             # fwdays-kyverno-policies 0.2.0, injectIstioSidecar enabled
 ```
+
+The policy itself is a template in the
+[`fwdays-kyverno-policies`](https://github.com/skiyl9x/helm-charts/tree/main/charts/fwdays-kyverno-policies)
+chart: `templates/inject-istio-sidecar.yaml`.
 
 ## 1. Install Istio
 
@@ -99,18 +100,47 @@ kubectl -n istio-system get pods
 
 ## 2. Kyverno policy: sidecar for students
 
-[`policies/base/istio-sidecar-injection/clusterpolicy.yaml`](../../policies/base/istio-sidecar-injection/clusterpolicy.yaml):
+The policy is added to the `fwdays-kyverno-policies` Helm chart from Module 03 as
+the template `templates/inject-istio-sidecar.yaml`, and the chart version is bumped to `0.2.0`.
+New values (disabled by default):
+
+```yaml
+policies:
+  injectIstioSidecar:
+    enabled: false
+    persons: [student]      # values of personLabel.key whose pods get the sidecar
+```
+
+The template builds one rule per person from the existing `personLabel` values
+(the label key and the person's namespaces), so the namespace list lives in one place.
+
+In this repo the policy is enabled in
+[`policies/base/kyverno-policies/helmrelease.yaml`](../../policies/base/kyverno-policies/helmrelease.yaml):
+
+```yaml
+chart:
+  spec:
+    chart: fwdays-kyverno-policies
+    version: 0.2.0
+values:
+  policies:
+    injectIstioSidecar:
+      enabled: true
+      persons: [student]
+```
+
+Rendered `ClusterPolicy`:
 
 ```yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: inject-istio-sidecar-for-students
+  name: inject-istio-sidecar
   annotations:
     pod-policies.kyverno.io/autogen-controllers: none
 spec:
   rules:
-    - name: add-istio-inject-annotation
+    - name: inject-sidecar-student-pods
       match:
         any:
           - resources:
@@ -154,13 +184,14 @@ why every pod goes to the injector (`enableNamespacesByDefault: true`), and
 Kyverno sets an annotation rather than a label because the Istio webhook that
 handles unmarked pods matches only pods without the `sidecar.istio.io/inject` label.
 
-The policy is applied by the `policies` Flux Kustomization, which depends on
+The chart is deployed by the `policies` Flux Kustomization, which depends on
 `infra-controllers`, so Kyverno and Istio are already installed.
 
 Check the policy:
 
 ```
-kubectl get clusterpolicy inject-istio-sidecar-for-students
+flux get helmreleases -n kyverno
+kubectl get clusterpolicy inject-istio-sidecar
 ```
 
 Test with a pod in a student namespace:
