@@ -11,7 +11,7 @@ spec:
         kind: HelmRepository
         name: skiyl9x-helm-charts
         namespace: flux-system
-      version: 0.1.0
+      version: 0.2.0
   interval: 1m
   values:
     personLabel:
@@ -32,6 +32,10 @@ spec:
         background: true
         enabled: true
         failureAction: Enforce
+      injectIstioSidecar:
+        enabled: true
+        persons:
+        - student
       requireReadonlyRootfs:
         background: true
         enabled: true
