@@ -67,6 +67,28 @@ jobs:
             done
           fi
 
+      - name: Render Monitoring Manifests
+        working-directory: main
+        run: |
+          set -x
+          if [ -d monitoring/${{ matrix.target_branch }}/controllers ]; then
+            for controller_dir in $(find monitoring/${{ matrix.target_branch }}/controllers -mindepth 1 -maxdepth 1 -type d); do
+              controller_name=$(basename ${controller_dir})
+              mkdir -p ../tmp/rendered/monitoring/controllers
+              kustomize build ${controller_dir} > ../tmp/rendered/monitoring/controllers/${controller_name}.yaml
+            done
+          fi
+          # keep the folder even when there are no configs, the infra-configs Kustomization points to it
+          mkdir -p ../tmp/rendered/monitoring/configs
+          touch ../tmp/rendered/monitoring/configs/.gitkeep
+          if [ -d monitoring/${{ matrix.target_branch }}/configs ]; then
+            for config_dir in $(find monitoring/${{ matrix.target_branch }}/configs -mindepth 1 -maxdepth 1 -type d); do
+              config_name=$(basename ${config_dir})
+              mkdir -p ../tmp/rendered/monitoring/configs
+              kustomize build ${config_dir} > ../tmp/rendered/monitoring/configs/${config_name}.yaml
+            done
+          fi
+
       - name: Render Policies Manifests
         working-directory: main
         run: |
