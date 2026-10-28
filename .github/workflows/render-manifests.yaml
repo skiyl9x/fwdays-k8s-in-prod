@@ -8,6 +8,7 @@ on:
       - 'infrastructure/**'
       - 'policies/**'
       - 'tenants/**'
+      - 'monitoring/**'
 
 permissions:
   contents: write
