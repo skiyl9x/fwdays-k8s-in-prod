@@ -75,10 +75,10 @@ monitoring/
 [`clusters/production/monitoring.yaml`](../../clusters/production/monitoring.yaml)
 adds two Flux `Kustomization`s that read from the `rendered-production` source:
 
-| Kustomization | Path | Contents |
-|---|---|---|
-| `monitoring-controllers` | `./monitoring/controllers` | `kube-prometheus-stack` and `loki-stack`. `wait: true`, so Flux waits until the HelmReleases are ready. |
-| `monitoring-configs` | `./monitoring/configs` | Dashboards and alert rules. `dependsOn: monitoring-controllers`, so Grafana and its sidecars already exist. |
+| Kustomization            | Path                       | Contents                                                                                                    |
+| ------------------------ | -------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `monitoring-controllers` | `./monitoring/controllers` | `kube-prometheus-stack` and `loki-stack`. `wait: true`, so Flux waits until the HelmReleases are ready.     |
+| `monitoring-configs`     | `./monitoring/configs`     | Dashboards and alert rules. `dependsOn: monitoring-controllers`, so Grafana and its sidecars already exist. |
 
 The [render workflow](../../.github/workflows/render-manifests.yaml) now also runs on
 changes in `monitoring/**`. It builds every folder in `monitoring/production/controllers/`
@@ -107,35 +107,35 @@ Main values:
 ```yaml
 grafana:
   enabled: true
-  defaultDashboardsEnabled: false     # only our own dashboards, from git
+  defaultDashboardsEnabled: false # only our own dashboards, from git
   persistence:
     enabled: true
     size: 5Gi
   additionalDataSources:
     - name: Loki
-      uid: loki                       # fixed uid, used by the dashboard and the alert rule
+      uid: loki # fixed uid, used by the dashboard and the alert rule
       type: loki
       url: http://loki.monitoring.svc:3100
       access: proxy
   sidecar:
-    alerts:                           # load alert rules from ConfigMaps labeled grafana_alert: "1"
+    alerts: # load alert rules from ConfigMaps labeled grafana_alert: "1"
       enabled: true
       label: grafana_alert
       labelValue: "1"
-    dashboards:                       # put dashboards into the folder from the grafana_folder annotation
+    dashboards: # put dashboards into the folder from the grafana_folder annotation
       folderAnnotation: grafana_folder
       provider:
         foldersFromFilesStructure: true
 prometheus:
   prometheusSpec:
     retention: 10d
-    scrapeClasses:                    # add cluster="production" to every scraped series
+    scrapeClasses: # add cluster="production" to every scraped series
       - name: default
         default: true
         relabelings:
           - targetLabel: cluster
             replacement: production
-    storageSpec:                      # 10Gi PVC
+    storageSpec: # 10Gi PVC
 alertmanager:
   enabled: true
 ```
@@ -164,10 +164,10 @@ because node-exporter and Alloy need host access.
 [`loki-stack`](../../monitoring/base/controllers/loki-stack) contains the `grafana`
 `HelmRepository` (`https://grafana.github.io/helm-charts`) and two HelmReleases:
 
-| HelmRelease | Chart | Purpose |
-|---|---|---|
-| [`loki`](../../monitoring/base/controllers/loki-stack/loki-helmrelease.yaml) | `loki` `7.5.0` (Loki 3.6) | Log storage |
-| [`alloy`](../../monitoring/base/controllers/loki-stack/alloy-helmrelease.yaml) | `alloy` `1.15.0` | Log collector, `dependsOn: loki` |
+| HelmRelease                                                                    | Chart                     | Purpose                          |
+| ------------------------------------------------------------------------------ | ------------------------- | -------------------------------- |
+| [`loki`](../../monitoring/base/controllers/loki-stack/loki-helmrelease.yaml)   | `loki` `7.5.0` (Loki 3.6) | Log storage                      |
+| [`alloy`](../../monitoring/base/controllers/loki-stack/alloy-helmrelease.yaml) | `alloy` `1.15.0`          | Log collector, `dependsOn: loki` |
 
 Loki runs in `SingleBinary` mode with one replica and filesystem storage on a 10Gi
 PVC, which is enough for a single-node cluster. Logs are kept for 7 days
@@ -176,12 +176,12 @@ canary and the scalable `read`/`write`/`backend` targets are disabled.
 
 Alloy runs as a DaemonSet and mounts `/var/log` from the node. Its pipeline:
 
-| Component | What it does |
-|---|---|
+| Component                                                  | What it does                                                                                                                         |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | `discovery.kubernetes "pods"` + `discovery.relabel "pods"` | Finds pods and sets the labels `namespace`, `pod`, `container`, `app` and the log file path `/var/log/pods/*<uid>/<container>/*.log` |
-| `loki.source.file "pods"` + `loki.process "pods"` | Reads the log files and parses the containerd (CRI) format |
-| `loki.source.kubernetes_events "events"` | Reads Kubernetes events as JSON with `job="kubernetes-events"` |
-| `loki.write "default"` | Pushes everything to `http://loki.monitoring.svc:3100/loki/api/v1/push` |
+| `loki.source.file "pods"` + `loki.process "pods"`          | Reads the log files and parses the containerd (CRI) format                                                                           |
+| `loki.source.kubernetes_events "events"`                   | Reads Kubernetes events as JSON with `job="kubernetes-events"`                                                                       |
+| `loki.write "default"`                                     | Pushes everything to `http://loki.monitoring.svc:3100/loki/api/v1/push`                                                              |
 
 Check that logs arrive:
 
@@ -206,10 +206,10 @@ in the HelmRelease; change it or move it to a Secret for real use.
 Dashboards and alert rules are not created in the UI. They are ConfigMaps in
 `monitoring/base/configs`, and the Grafana sidecars load them:
 
-| Folder | ConfigMap | Label | Loaded by |
-|---|---|---|---|
+| Folder                                                   | ConfigMap                 | Label                    | Loaded by          |
+| -------------------------------------------------------- | ------------------------- | ------------------------ | ------------------ |
 | [`dashboards`](../../monitoring/base/configs/dashboards) | `flux-grafana-dashboards` | `grafana_dashboard: "1"` | dashboards sidecar |
-| [`alerts`](../../monitoring/base/configs/alerts) | `flux-grafana-alerts` | `grafana_alert: "1"` | alerts sidecar |
+| [`alerts`](../../monitoring/base/configs/alerts)         | `flux-grafana-alerts`     | `grafana_alert: "1"`     | alerts sidecar     |
 
 The dashboards ConfigMap has the annotation `grafana_folder: module05`, so both
 dashboards are in the **module05** folder in Grafana, next to the alert rule.
@@ -226,28 +226,29 @@ uid `fwdays_module05_student_namespaces`, tags `Kubernetes`, `Prometheus`, `modu
 
 Variables:
 
-| Variable | Query | Purpose |
-|---|---|---|
-| `datasource` | Prometheus datasources | |
-| `cluster` | `label_values(kube_node_info, cluster)` | Comes from the default scrape class |
-| `namespace` | `label_values(kube_pod_info{cluster="$cluster", namespace=~"student.*"}, namespace)` | Only student namespaces, multi-select with *All* |
+| Variable     | Query                                                                                       | Purpose                                            |
+| ------------ | ------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `datasource` | Prometheus datasources                                                                      |                                                    |
+| `cluster`    | `label_values(kube_node_info, cluster)`                                                     | Comes from the default scrape class                |
+| `namespace`  | `label_values(kube_pod_info{cluster="$cluster", namespace=~"student.*"}, namespace)`        | Only student namespaces, multi-select with _All_   |
 | `created_by` | `label_values(kube_pod_info{namespace=~"$namespace", cluster="$cluster"}, created_by_name)` | Filter pods by owner (Deployment/ReplicaSet, etc.) |
-| `resolution` | `1s` … `5m` | Query step |
+| `resolution` | `1s` … `5m`                                                                                 | Query step                                         |
 
 Rows and panels:
 
-| Row | Panels |
-|---|---|
-| **Overview** | Share of the node CPU and RAM used by the selected namespaces, in % (`container_cpu_usage_seconds_total / machine_cpu_cores`, `container_memory_working_set_bytes / machine_memory_bytes`); CPU in cores and RAM in bytes; number of pods |
-| **Resources** | CPU, memory and CPU throttling by pod |
-| **Kubernetes** | QoS classes, pod status reasons, OOM events, container restarts, ready pods, containers per pod, available/unavailable replicas, pods not in `Running`/`Succeeded`, images in use |
-| **Kubernetes Storage** | PVC usage in % and bytes, inodes |
-| **Network** | Bandwidth, packets, dropped packets and errors by pod |
+| Row                    | Panels                                                                                                                                                                                                                                    |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Overview**           | Share of the node CPU and RAM used by the selected namespaces, in % (`container_cpu_usage_seconds_total / machine_cpu_cores`, `container_memory_working_set_bytes / machine_memory_bytes`); CPU in cores and RAM in bytes; number of pods |
+| **Resources**          | CPU, memory and CPU throttling by pod                                                                                                                                                                                                     |
+| **Kubernetes**         | QoS classes, pod status reasons, OOM events, container restarts, ready pods, containers per pod, available/unavailable replicas, pods not in `Running`/`Succeeded`, images in use                                                         |
+| **Kubernetes Storage** | PVC usage in % and bytes, inodes                                                                                                                                                                                                          |
+| **Network**            | Bandwidth, packets, dropped packets and errors by pod                                                                                                                                                                                     |
 
 The overview gauges answer the task directly: how much of the node's CPU and memory
 the student namespaces use. The other rows show which pod causes the load.
 
-<!-- TODO: add docs/module05/pictures/scr01.bmp and replace the placeholder below with: ![Module 05 screenshot 01](./pictures/scr01.bmp) -->
+![Module 05 screenshot 01](./pictures/scr01.bmp)
+
 > 📷 **Screenshot 01** (`pictures/scr01.bmp`): the **Students resource usage** dashboard with the student namespaces selected (Overview row with CPU/RAM gauges).
 
 ## 3. Dashboard and alert: readonly root filesystem audit
@@ -285,14 +286,15 @@ Dashboard **Kyverno readonly rootfs audit**
 uid `kyverno-readonly-rootfs`, tags `kyverno`, `module05`), Loki datasource, with a
 `namespace` variable:
 
-| Panel | Query |
-|---|---|
-| Violations in range (stat, red when > 0) | `sum(count_over_time(<query> [$__range]))` |
-| Violations by namespace (bars) | `sum by (namespace) (count_over_time(<query> [$__interval]))` |
-| Violating objects (table) | `sum by (namespace, kind, name) (count_over_time(<query> [$__range]))` |
-| PolicyViolation events (logs) | `<query>` |
+| Panel                                    | Query                                                                  |
+| ---------------------------------------- | ---------------------------------------------------------------------- |
+| Violations in range (stat, red when > 0) | `sum(count_over_time(<query> [$__range]))`                             |
+| Violations by namespace (bars)           | `sum by (namespace) (count_over_time(<query> [$__interval]))`          |
+| Violating objects (table)                | `sum by (namespace, kind, name) (count_over_time(<query> [$__range]))` |
+| PolicyViolation events (logs)            | `<query>`                                                              |
 
-<!-- TODO: add docs/module05/pictures/scr02.bmp and replace the placeholder below with: ![Module 05 screenshot 02](./pictures/scr02.bmp) -->
+![Module 05 screenshot 02](./pictures/scr02.bmp)
+
 > 📷 **Screenshot 02** (`pictures/scr02.bmp`): the **Kyverno readonly rootfs audit** dashboard showing the `rofs-test` pod violation.
 
 ### Alert
@@ -304,18 +306,19 @@ Prometheus can't query Loki.
 
 Rule `Readonly rootfs audit failed` (folder `module05`, group `kyverno`):
 
-| Setting | Value |
-|---|---|
-| Query (A) | `sum by (namespace, name) (count_over_time(<query> [5m]))` |
-| Condition | Reduce `last` (B) → Threshold `> 0` (C) |
-| Evaluation | every `1m`, pending period `0s` |
-| No data | `OK`: no violations means no data, which is not an error |
-| Labels | `severity: warning`, `policy: require-readonly-rootfs` |
-| Summary | `<namespace>/<name> violates require-readonly-rootfs` |
+| Setting    | Value                                                      |
+| ---------- | ---------------------------------------------------------- |
+| Query (A)  | `sum by (namespace, name) (count_over_time(<query> [5m]))` |
+| Condition  | Reduce `last` (B) → Threshold `> 0` (C)                    |
+| Evaluation | every `1m`, pending period `0s`                            |
+| No data    | `OK`: no violations means no data, which is not an error   |
+| Labels     | `severity: warning`, `policy: require-readonly-rootfs`     |
+| Summary    | `<namespace>/<name> violates require-readonly-rootfs`      |
 
 Because of `by (namespace, name)`, every violating object is a separate alert instance.
 
-<!-- TODO: add docs/module05/pictures/scr03.bmp and replace the placeholder below with: ![Module 05 screenshot 03](./pictures/scr03.bmp) -->
+![Module 05 screenshot 03](./pictures/scr03.bmp)
+
 > 📷 **Screenshot 03** (`pictures/scr03.bmp`): Grafana → Alerting → Alert rules, rule **Readonly rootfs audit failed** in the **Firing** state.
 
 The annotations use `{{ index .Labels "namespace" }}` and not `{{ $labels.namespace }}`:
