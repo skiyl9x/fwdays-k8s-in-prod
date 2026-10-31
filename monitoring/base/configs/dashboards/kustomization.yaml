@@ -4,9 +4,9 @@ namespace: monitoring
 configMapGenerator:
   - name: flux-grafana-dashboards
     files:
-      - dashboards/control-plane.json
-      - dashboards/cluster.json
-      - dashboards/logs.json
+      - control-plane.json
+      - cluster.json
+      - logs.json
     options:
       labels:
         grafana_dashboard: "1"
