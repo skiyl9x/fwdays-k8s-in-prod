@@ -51,6 +51,11 @@ spec:
           enabled: true
           label: grafana_alert
           labelValue: "1"
+        # Put dashboards into the folder named by the ConfigMap's grafana_folder annotation
+        dashboards:
+          folderAnnotation: grafana_folder
+          provider:
+            foldersFromFilesStructure: true
 
     # Prometheus Configuration
     prometheus:
