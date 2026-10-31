@@ -339,6 +339,10 @@ spec:
           enabled: true
           label: grafana_alert
           labelValue: "1"
+        dashboards:
+          folderAnnotation: grafana_folder
+          provider:
+            foldersFromFilesStructure: true
     prometheus:
       prometheusSpec:
         retention: 10d
