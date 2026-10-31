@@ -17,10 +17,23 @@ spec:
     crds: CreateReplace
   upgrade:
     crds: CreateReplace
+  driftDetection:
+    mode: enabled
+    ignore:
+      # Ignore "validated" annotation which is not inserted during install
+      - paths: [ "/metadata/annotations/prometheus-operator-validated" ]
+        target:
+          kind: PrometheusRule
+  valuesFrom:
+  - kind: ConfigMap
+    name: flux-kube-state-metrics-config
+    valuesKey: kube-state-metrics-config.yaml
+
   values:
     # Grafana Configuration
     grafana:
       enabled: true
+      defaultDashboardsEnabled: false
       persistence:
         enabled: true
         size: 5Gi
