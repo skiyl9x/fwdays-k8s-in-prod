@@ -292,6 +292,7 @@ metadata:
     app.kubernetes.io/component: monitoring
     app.kubernetes.io/part-of: flux
   name: flux-kube-state-metrics-config-dh86b5cgm5
+  namespace: monitoring
 ---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
@@ -347,7 +348,7 @@ spec:
                   storage: 10Gi
   valuesFrom:
   - kind: ConfigMap
-    name: flux-kube-state-metrics-config
+    name: flux-kube-state-metrics-config-dh86b5cgm5
     valuesKey: kube-state-metrics-config.yaml
 ---
 apiVersion: source.toolkit.fluxcd.io/v1
