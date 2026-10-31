@@ -1,6 +1,6 @@
 apiVersion: v1
 data:
-  fwdays-module05-student-namespaces.json: |-
+  fwdays-module05-student-namespaces.json: |
     {
       "annotations": {
         "list": [
@@ -64,7 +64,7 @@ data:
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 1,
-      "id": 33,
+      "id": 34,
       "links": [],
       "panels": [
         {
@@ -2872,7 +2872,7 @@ data:
             "type": "query"
           },
           {
-            "allValue": ".*",
+            "allValue": "student.*",
             "current": {
               "text": [
                 "student02"
@@ -2977,7 +2977,7 @@ data:
       "timezone": "",
       "title": "fwdays - module05 - student namespaces",
       "uid": "fwdays_module05_student_namespaces",
-      "version": 2,
+      "version": 1,
       "weekStart": ""
     }
 kind: ConfigMap
@@ -2987,5 +2987,5 @@ metadata:
     app.kubernetes.io/part-of: flux
     grafana_dashboard: "1"
     kustomize.toolkit.fluxcd.io/substitute: disabled
-  name: flux-grafana-dashboards-2k78bg4bbc
+  name: flux-grafana-dashboards-5gg5kcfthb
   namespace: monitoring
