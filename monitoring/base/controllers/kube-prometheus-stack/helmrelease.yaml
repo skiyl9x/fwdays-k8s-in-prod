@@ -38,7 +38,11 @@ spec:
         enabled: true
         size: 5Gi
       adminPassword: "prom-operator" # Change this or use a Secret!
-      
+      additionalDataSources:
+        - name: Loki
+          type: loki
+          url: http://loki.monitoring.svc:3100
+          access: proxy 
     # Prometheus Configuration
     prometheus:
       prometheusSpec:
