@@ -1,10 +1,8 @@
 kube-state-metrics:
-  # For kube-prometheus-stacks that are already installed and configured with
-  # custom collectors, commenting out the collectors and extraArgs below will
-  # retain any existing kube-state-metrics configuration.
-  collectors: [ ]
-  extraArgs:
-    - --custom-resource-state-only=true
+  # Kubernetes labels exported as metric labels, e.g. kube_pod_labels{label_person="student"}
+  metricLabelsAllowlist:
+    - pods=[person]
+    - namespaces=[*]
   rbac:
     extraRules:
       - apiGroups:
