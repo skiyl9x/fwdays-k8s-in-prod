@@ -2828,7 +2828,8 @@
   "schemaVersion": 40,
   "tags": [
     "Kubernetes",
-    "Prometheus"
+    "Prometheus",
+    "module05"
   ],
   "templating": {
     "list": [
