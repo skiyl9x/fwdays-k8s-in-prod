@@ -326,6 +326,7 @@ spec:
       - access: proxy
         name: Loki
         type: loki
+        uid: loki
         url: http://loki.monitoring.svc:3100
       adminPassword: prom-operator
       defaultDashboardsEnabled: false
@@ -333,6 +334,11 @@ spec:
       persistence:
         enabled: true
         size: 5Gi
+      sidecar:
+        alerts:
+          enabled: true
+          label: grafana_alert
+          labelValue: "1"
     prometheus:
       prometheusSpec:
         retention: 10d
