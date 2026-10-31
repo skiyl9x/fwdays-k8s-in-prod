@@ -51,7 +51,7 @@ spec:
           enabled: true
           label: grafana_alert
           labelValue: "1"
-      
+
     # Prometheus Configuration
     prometheus:
       prometheusSpec:
