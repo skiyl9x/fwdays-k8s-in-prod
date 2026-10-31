@@ -7,6 +7,7 @@ configMapGenerator:
       - control-plane.json
       - cluster.json
       - logs.json
+      - readonly-rootfs.json
     options:
       labels:
         grafana_dashboard: "1"

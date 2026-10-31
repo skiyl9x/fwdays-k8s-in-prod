@@ -1,0 +1,63 @@
+# Grafana alerting provisioning: Kyverno audit failures of require-readonly-rootfs,
+# found in Kubernetes events that Alloy ships to Loki (job="kubernetes-events").
+# No "$" in templates: Grafana expands $VAR in provisioning files.
+apiVersion: 1
+contactPoints:
+  - orgId: 1
+    name: alertmanager
+    receivers:
+      - uid: alertmanager
+        type: prometheus-alertmanager
+        settings:
+          url: http://kube-prometheus-stack-alertmanager.monitoring.svc:9093
+groups:
+  - orgId: 1
+    name: kyverno
+    folder: module05
+    interval: 1m
+    rules:
+      - uid: readonly-rootfs-audit-failed
+        title: Readonly rootfs audit failed
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: loki
+            model:
+              refId: A
+              queryType: instant
+              expr: >-
+                sum by (namespace, name) (count_over_time({job="kubernetes-events"}
+                | json | reason="PolicyViolation" | kind!="ClusterPolicy"
+                | msg=~".*require-readonly-rootfs.*" [5m]))
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        # no violations -> query returns nothing, which is fine
+        noDataState: OK
+        execErrState: Error
+        for: 0s
+        labels:
+          severity: warning
+          policy: require-readonly-rootfs
+        annotations:
+          summary: '{{ index .Labels "namespace" }}/{{ index .Labels "name" }} violates require-readonly-rootfs'
+          description: Container runs without securityContext.readOnlyRootFilesystem=true (Kyverno audit).
+        notification_settings:
+          receiver: alertmanager
