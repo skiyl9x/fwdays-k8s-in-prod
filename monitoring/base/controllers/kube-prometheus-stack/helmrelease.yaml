@@ -38,11 +38,20 @@ spec:
         enabled: true
         size: 5Gi
       adminPassword: "prom-operator" # Change this or use a Secret!
+      # Loki from loki-stack; fixed uid so dashboards and alert rules can reference it
       additionalDataSources:
         - name: Loki
+          uid: loki
           type: loki
           url: http://loki.monitoring.svc:3100
-          access: proxy 
+          access: proxy
+      # Load alert rules/contact points from ConfigMaps labeled grafana_alert
+      sidecar:
+        alerts:
+          enabled: true
+          label: grafana_alert
+          labelValue: "1"
+
     # Prometheus Configuration
     prometheus:
       prometheusSpec:
