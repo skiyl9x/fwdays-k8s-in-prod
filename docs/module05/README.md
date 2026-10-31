@@ -93,9 +93,6 @@ flux get helmreleases -n monitoring
 kubectl -n monitoring get pods
 ```
 
-<!-- TODO: add docs/module05/pictures/scr01.bmp and replace the placeholder below with: ![Module 05 screenshot 01](./pictures/scr01.bmp) -->
-> 📷 **Screenshot 01** (`pictures/scr01.bmp`): output of `flux get kustomizations monitoring-controllers monitoring-configs`, `flux get helmreleases -n monitoring` and `kubectl -n monitoring get pods`.
-
 ## 1. Monitoring system
 
 ### Metrics: kube-prometheus-stack
@@ -193,9 +190,6 @@ kubectl -n monitoring port-forward svc/loki 3100:3100
 curl -s localhost:3100/loki/api/v1/labels
 ```
 
-<!-- TODO: add docs/module05/pictures/scr02.bmp and replace the placeholder below with: ![Module 05 screenshot 02](./pictures/scr02.bmp) -->
-> 📷 **Screenshot 02** (`pictures/scr02.bmp`): output of `curl -s localhost:3100/loki/api/v1/labels` showing the Loki labels (`namespace`, `pod`, `job`, ...).
-
 ### Grafana
 
 Grafana is available inside the cluster as `svc/kube-prometheus-stack-grafana`:
@@ -223,9 +217,6 @@ Both ConfigMaps have `kustomize.toolkit.fluxcd.io/substitute: disabled`, so Flux
 doesn't touch `${...}` variables in the dashboards.
 
 Provisioned dashboards are read-only in the UI. To change one, edit the JSON in git.
-
-<!-- TODO: add docs/module05/pictures/scr03.bmp and replace the placeholder below with: ![Module 05 screenshot 03](./pictures/scr03.bmp) -->
-> 📷 **Screenshot 03** (`pictures/scr03.bmp`): Grafana → Dashboards, the **module05** folder with both dashboards.
 
 ## 2. Dashboard: student namespaces load on nodes
 
@@ -256,8 +247,8 @@ Rows and panels:
 The overview gauges answer the task directly: how much of the node's CPU and memory
 the student namespaces use. The other rows show which pod causes the load.
 
-<!-- TODO: add docs/module05/pictures/scr04.bmp and replace the placeholder below with: ![Module 05 screenshot 04](./pictures/scr04.bmp) -->
-> 📷 **Screenshot 04** (`pictures/scr04.bmp`): the **Students resource usage** dashboard with the student namespaces selected (Overview row with CPU/RAM gauges).
+<!-- TODO: add docs/module05/pictures/scr01.bmp and replace the placeholder below with: ![Module 05 screenshot 01](./pictures/scr01.bmp) -->
+> 📷 **Screenshot 01** (`pictures/scr01.bmp`): the **Students resource usage** dashboard with the student namespaces selected (Overview row with CPU/RAM gauges).
 
 ## 3. Dashboard and alert: readonly root filesystem audit
 
@@ -301,8 +292,8 @@ uid `kyverno-readonly-rootfs`, tags `kyverno`, `module05`), Loki datasource, wit
 | Violating objects (table) | `sum by (namespace, kind, name) (count_over_time(<query> [$__range]))` |
 | PolicyViolation events (logs) | `<query>` |
 
-<!-- TODO: add docs/module05/pictures/scr05.bmp and replace the placeholder below with: ![Module 05 screenshot 05](./pictures/scr05.bmp) -->
-> 📷 **Screenshot 05** (`pictures/scr05.bmp`): the **Kyverno readonly rootfs audit** dashboard showing the `rofs-test` pod violation.
+<!-- TODO: add docs/module05/pictures/scr02.bmp and replace the placeholder below with: ![Module 05 screenshot 02](./pictures/scr02.bmp) -->
+> 📷 **Screenshot 02** (`pictures/scr02.bmp`): the **Kyverno readonly rootfs audit** dashboard showing the `rofs-test` pod violation.
 
 ### Alert
 
@@ -324,8 +315,8 @@ Rule `Readonly rootfs audit failed` (folder `module05`, group `kyverno`):
 
 Because of `by (namespace, name)`, every violating object is a separate alert instance.
 
-<!-- TODO: add docs/module05/pictures/scr06.bmp and replace the placeholder below with: ![Module 05 screenshot 06](./pictures/scr06.bmp) -->
-> 📷 **Screenshot 06** (`pictures/scr06.bmp`): Grafana → Alerting → Alert rules, rule **Readonly rootfs audit failed** in the **Firing** state.
+<!-- TODO: add docs/module05/pictures/scr03.bmp and replace the placeholder below with: ![Module 05 screenshot 03](./pictures/scr03.bmp) -->
+> 📷 **Screenshot 03** (`pictures/scr03.bmp`): Grafana → Alerting → Alert rules, rule **Readonly rootfs audit failed** in the **Firing** state.
 
 The annotations use `{{ index .Labels "namespace" }}` and not `{{ $labels.namespace }}`:
 Grafana replaces `$VAR` in provisioning files with environment variables.
@@ -354,9 +345,6 @@ Within 1–2 minutes:
 ```
 kubectl -n monitoring port-forward svc/kube-prometheus-stack-alertmanager 9093:9093
 ```
-
-<!-- TODO: add docs/module05/pictures/scr07.bmp and replace the placeholder below with: ![Module 05 screenshot 07](./pictures/scr07.bmp) -->
-> 📷 **Screenshot 07** (`pictures/scr07.bmp`): Alertmanager UI with the `Readonly rootfs audit failed` alert.
 
 Delete the test pod:
 
