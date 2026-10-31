@@ -2975,7 +2975,7 @@ data:
       },
       "timepicker": {},
       "timezone": "",
-      "title": "fwdays - module05 - student namespaces",
+      "title": "Students resource usage",
       "uid": "fwdays_module05_student_namespaces",
       "version": 1,
       "weekStart": ""
@@ -3196,10 +3196,12 @@ data:
     }
 kind: ConfigMap
 metadata:
+  annotations:
+    grafana_folder: module05
   labels:
     app.kubernetes.io/component: monitoring
     app.kubernetes.io/part-of: flux
     grafana_dashboard: "1"
     kustomize.toolkit.fluxcd.io/substitute: disabled
-  name: flux-grafana-dashboards-25bkm6mc57
+  name: flux-grafana-dashboards-fcmc6dg4bh
   namespace: monitoring
