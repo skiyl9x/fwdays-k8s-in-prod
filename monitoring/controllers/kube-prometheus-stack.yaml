@@ -322,6 +322,11 @@ spec:
     alertmanager:
       enabled: true
     grafana:
+      additionalDataSources:
+      - access: proxy
+        name: Loki
+        type: loki
+        url: http://loki.monitoring.svc:3100
       adminPassword: prom-operator
       defaultDashboardsEnabled: false
       enabled: true
