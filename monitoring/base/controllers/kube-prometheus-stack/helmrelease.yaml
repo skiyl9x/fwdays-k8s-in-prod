@@ -49,6 +49,13 @@ spec:
           fsGroup: 65534
           runAsNonRoot: true
         retention: 10d
+        # Add cluster="production" to every series scraped by any ServiceMonitor/PodMonitor
+        scrapeClasses:
+          - name: default
+            default: true
+            relabelings:
+              - targetLabel: cluster
+                replacement: production
         storageSpec:
           volumeClaimTemplate:
             spec:
