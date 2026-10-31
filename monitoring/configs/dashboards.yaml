@@ -2831,7 +2831,8 @@ data:
       "schemaVersion": 40,
       "tags": [
         "Kubernetes",
-        "Prometheus"
+        "Prometheus",
+        "module05"
       ],
       "templating": {
         "list": [
@@ -3203,5 +3204,5 @@ metadata:
     app.kubernetes.io/part-of: flux
     grafana_dashboard: "1"
     kustomize.toolkit.fluxcd.io/substitute: disabled
-  name: flux-grafana-dashboards-fcmc6dg4bh
+  name: flux-grafana-dashboards-t6245h4tfd
   namespace: monitoring
